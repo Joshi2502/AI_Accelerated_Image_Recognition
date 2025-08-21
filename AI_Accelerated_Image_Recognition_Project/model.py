@@ -1,24 +1,23 @@
-
+# model.py
+from typing import Optional
 import torch
-import torchvision.models as models
-import torchvision.transforms as transforms
+import torch.nn as nn
+from torchvision import models
 
-def load_model(version='default'):
-    model = models.resnet50(pretrained=True)
-    model.fc = torch.nn.Linear(model.fc.in_features, 10)  # 10 classes (CIFAR-10)
-    if version != 'default':
-        model.load_state_dict(torch.load(f'models/{version}.pth'))
-    model.eval()
+def build_resnet50(num_classes: int, pretrained: bool = True, freeze_backbone: bool = False) -> nn.Module:
+    """
+    Build a ResNet50 with an adjustable classification head.
+    """
+    if pretrained:
+        weights = models.ResNet50_Weights.IMAGENET1K_V2
+        model = models.resnet50(weights=weights)
+    else:
+        model = models.resnet50(weights=None)
+
+    if freeze_backbone:
+        for p in model.parameters():
+            p.requires_grad = False
+
+    in_features = model.fc.in_features
+    model.fc = nn.Linear(in_features, num_classes)
     return model
-
-def classify_image(image, model):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
-    image = transform(image).unsqueeze(0)
-    with torch.no_grad():
-        outputs = model(image)
-        _, predicted = torch.max(outputs, 1)
-    return int(predicted)
